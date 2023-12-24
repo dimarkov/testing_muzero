@@ -15,7 +15,7 @@ _NP_TO_CT = {np.float32: ctypes.c_float,
              np.int32: ctypes.c_int32,
              np.int8: ctypes.c_int8,
              np.uint8: ctypes.c_char,
-             np.bool: ctypes.c_bool}
+             bool: ctypes.c_bool}
 
 
 def alloc_shmem(ctx, shape, dtype):
@@ -55,8 +55,11 @@ class ShmemVecEnv(VecEnv):
         self.act_buf = np.frombuffer(raw_act_buf, dtype=action_space.dtype.type).reshape((len(env_fns),))
         raw_rew_buf = alloc_shmem(ctx, (len(env_fns),), np.float32)
         self.rew_buf = np.frombuffer(raw_rew_buf, dtype=np.float32).reshape((len(env_fns),))
-        raw_done_buf = alloc_shmem(ctx, (len(env_fns),), np.bool)
-        self.done_buf = np.frombuffer(raw_done_buf, dtype=np.bool).reshape((len(env_fns),))
+        raw_done_buf = alloc_shmem(ctx, (len(env_fns),), bool)
+        self.done_buf = np.frombuffer(raw_done_buf, dtype=bool).reshape((len(env_fns),))
+
+        raw_trunc_buf = alloc_shmem(ctx, (len(env_fns),), bool)
+        self.trunc_buf = np.frombuffer(raw_trunc_buf, dtype=bool).reshape((len(env_fns),))
         self.parent_pipes = []
         self.procs = []
         for idx, env_fn in enumerate(env_fns):
@@ -68,7 +71,8 @@ class ShmemVecEnv(VecEnv):
                       raw_obs_buf, self.obs_keys, self.obs_shapes, self.obs_dtypes,
                       raw_act_buf, action_space.dtype.type,
                       raw_rew_buf, np.float32,
-                      raw_done_buf, np.bool))
+                      raw_done_buf, bool,
+                      raw_trunc_buf, bool))
             proc.daemon = True
             self.procs.append(proc)
             self.parent_pipes.append(parent_pipe)
@@ -85,7 +89,7 @@ class ShmemVecEnv(VecEnv):
             pipe.send('reset')
         for pipe in self.parent_pipes:
             pipe.recv()
-        return self._decode_obses()
+        return self._decode_obses(), self._decode_infos()
 
     def step_async(self, actions):
         assert len(actions) == len(self.parent_pipes)
@@ -97,7 +101,7 @@ class ShmemVecEnv(VecEnv):
     def step_wait(self):
         infos = [pipe.recv() for pipe in self.parent_pipes]
         self.waiting_step = False
-        return self._decode_obses(), np.copy(self.rew_buf), np.copy(self.done_buf), infos
+        return self._decode_obses(), np.copy(self.rew_buf), np.copy(self.done_buf), np.copy(self.trunc_buf), infos
 
     def close_extras(self):
         if self.waiting_step:
@@ -120,6 +124,9 @@ class ShmemVecEnv(VecEnv):
         for k in self.obs_keys:
             result[k] = np.copy(self.obs_buf[k])
         return dict_to_obs(result)
+    
+    def _decode_infos(self):
+        return [pipe.recv() for pipe in self.parent_pipes]
 
 
 def _subproc_worker(

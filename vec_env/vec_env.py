@@ -183,12 +183,12 @@ class VecEnvObservationWrapper(VecEnvWrapper):
         pass
 
     def reset(self):
-        obs = self.venv.reset()
-        return self.process(obs)
+        obs, info = self.venv.reset()
+        return self.process(obs), info
 
     def step_wait(self):
-        obs, rews, dones, infos = self.venv.step_wait()
-        return self.process(obs), rews, dones, infos
+        obs, rews, dones, truncated, infos = self.venv.step_wait()
+        return self.process(obs), rews, dones, truncated, infos
 
 
 class CloudpickleWrapper(object):

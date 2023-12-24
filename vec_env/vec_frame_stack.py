@@ -12,7 +12,7 @@ class VecFrameStack(VecEnvWrapper):
         high = np.repeat(wos.high, self.nstack, axis=-1)
         self.num_channels = wos.shape[-1]
         self.stackedobs = np.zeros((venv.num_envs,) + low.shape, low.dtype)
-        self.news = np.zeros((venv.num_envs,), dtype=np.bool)
+        self.news = np.zeros((venv.num_envs,), dtype=bool)
         observation_space = spaces.Box(low=low, high=high, dtype=venv.observation_space.dtype)
         VecEnvWrapper.__init__(self, venv, observation_space=observation_space)
 
@@ -21,13 +21,13 @@ class VecFrameStack(VecEnvWrapper):
         for (i, new) in enumerate(self.news):
             if new:
                 self.stackedobs[i] = 0
-        obs, rews, self.news, infos = self.venv.step_wait()
+        obs, rews, self.news, truncs, infos = self.venv.step_wait()
         self.stackedobs[..., -self.num_channels:] = obs
-        return self.stackedobs, rews, self.news, infos
+        return self.stackedobs, rews, self.news, truncs, infos
 
     def reset(self):
-        obs = self.venv.reset()
+        obs, info = self.venv.reset()
         self.stackedobs[...] = 0
         self.stackedobs[..., -self.num_channels:] = obs
         self.news = np.zeros_like(self.news)
-        return self.stackedobs
+        return self.stackedobs, info

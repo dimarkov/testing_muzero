@@ -23,7 +23,8 @@ class DummyVecEnv(VecEnv):
         self.keys, shapes, dtypes = obs_space_info(obs_space)
 
         self.buf_obs = { k: np.zeros((self.num_envs,) + tuple(shapes[k]), dtype=dtypes[k]) for k in self.keys }
-        self.buf_dones = np.zeros((self.num_envs,), dtype=np.bool)
+        self.buf_dones = np.zeros((self.num_envs,), dtype=bool)
+        self.buf_truncs = np.zeros((self.num_envs,), dtype=bool)
         self.buf_rews  = np.zeros((self.num_envs,), dtype=np.float32)
         self.buf_infos = [{} for _ in range(self.num_envs)]
         self.actions = None
@@ -46,23 +47,26 @@ class DummyVecEnv(VecEnv):
     def step_wait(self):
         for e in range(self.num_envs):
             if self.buf_dones[e]:
-                obs = self.envs[e].reset()
+                obs, info = self.envs[e].reset()
                 self.buf_rews[e] = 0.
                 self.buf_dones[e] = False
-                self.buf_infos[e] = {}
+                self.buf_truncs[e] = False
+                self.buf_infos[e] = info
             else:
                 action = self.actions[e]
-                obs, self.buf_rews[e], self.buf_dones[e], self.buf_infos[e] = self.envs[e].step(action)
+                obs, self.buf_rews[e], self.buf_dones[e], self.buf_truncs[e], self.buf_infos[e] = self.envs[e].step(action)
             self._save_obs(e, obs)
         return (self._obs_from_buf(), np.copy(self.buf_rews), np.copy(self.buf_dones),
-                self.buf_infos.copy())
+                np.copy(self.buf_truncs), self.buf_infos.copy())
 
     def reset(self):
         for e in range(self.num_envs):
-            obs = self.envs[e].reset()
+            obs, info = self.envs[e].reset()
             self.buf_dones[e] = False
+            self.buf_truncs[e] = False
+            self.buf_infos[e] = info
             self._save_obs(e, obs)
-        return self._obs_from_buf()
+        return self._obs_from_buf(), self.buf_infos.copy()
 
     def _save_obs(self, e, obs):
         for k in self.keys:

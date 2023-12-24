@@ -57,6 +57,6 @@ if __name__ == '__main__':
             'num_updates': 120_000,
         },
         resources_per_trial={
-            'gpu': 1,
+            'gpu': 2,
         },
     )

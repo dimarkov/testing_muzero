@@ -155,7 +155,7 @@ class Experiment(tune.Trainable):
     def setup(self, config):
         self._config = config
         platform = jax.lib.xla_bridge.get_backend().platform
-        self._num_devices = jax.lib.xla_bridge.device_count()
+        self._num_devices = len(jax.devices(platform))
         logging.warning("Running on %s %s(s)", self._num_devices, platform)
 
         seed = config['seed']

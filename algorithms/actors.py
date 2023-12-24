@@ -13,10 +13,11 @@ class Actor(object):
         self._envs = envs
         self._agent_step = jax.jit(agent.batch_step)
         num_envs = self._envs.num_envs
+        obs, _ = self._envs.reset()
         self._timestep = ActorOutput(
             action_tm1=np.zeros((num_envs,), dtype=np.int32),
             reward=np.zeros((num_envs,), dtype=np.float32),
-            observation=self._envs.reset(),
+            observation=obs,
             first=np.ones((num_envs,), dtype=np.float32),
             last=np.zeros((num_envs,), dtype=np.float32),
         )
@@ -31,7 +32,7 @@ class Actor(object):
             rng_key, action, agent_out = self._agent_step(
                 rng_key, params, jax.device_put(self._timestep), temperature, False)
             action = jax.device_get(action)
-        observation, reward, done, info = self._envs.step(action)
+        observation, reward, done, truncated, info = self._envs.step(action)
         self._timestep = ActorOutput(
             action_tm1=action,
             reward=reward,
