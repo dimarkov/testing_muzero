@@ -1,15 +1,17 @@
 import os
 
+import sys
 
 from ray import tune
 
+sys.path.append('../')
 
 from algorithms.muzero import Experiment
 
 
 if __name__ == '__main__':
     config = {
-        'env_id': 'Breakout',
+        'env_id': 'Pong',
         'env_kwargs': {},
         'seed': 42,
         'num_envs': 1,
@@ -44,9 +46,9 @@ if __name__ == '__main__':
         'weight_decay': 1E-4,
         'target_update_interval': 200,
 
-        'evaluate_episodes': 32,
-        'log_interval': 4_000,
-        'total_frames': 100_000,
+        'evaluate_episodes': 1,
+        'log_interval': 5_000,
+        'total_frames': 10_000,
     }
     log_filename = os.path.basename(__file__).split('.')[0]
     analysis = tune.run(
@@ -54,7 +56,7 @@ if __name__ == '__main__':
         name=log_filename,
         config=config,
         stop={
-            'num_updates': 120_000,
+            'num_updates': 50_000,
         },
         resources_per_trial={
             'gpu': 2,

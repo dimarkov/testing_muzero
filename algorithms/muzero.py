@@ -324,7 +324,8 @@ class Experiment(tune.Trainable):
                 self._num_frames += timesteps.observation.shape[0]
 
         act_params = jax.tree_map(lambda t: t[0], self._params)
-        self._rng_key, epinfos = self._evaluate_actor.evaluate(self._rng_key, act_params)
+        self._rng_key, epinfos, timesteps = self._evaluate_actor.evaluate(self._rng_key, act_params)
+        np.savez(f'trajectory-{t0}.npz', timesteps=timesteps)
 
         log = jax.tree_map(lambda t: t[0], log)
         log = jax.device_get(log)

@@ -55,20 +55,23 @@ class EvaluateActor(object):
 
     def evaluate(self, rng_key: chex.PRNGKey, params):
         num_envs = self._envs.num_envs
+        obs, _ = self._envs.reset()
         timestep = ActorOutput(
             action_tm1=np.zeros((num_envs,), dtype=np.int32),
             reward=np.zeros((num_envs,), dtype=np.float32),
-            observation=self._envs.reset(),
+            observation=obs,
             first=np.ones((num_envs,), dtype=np.float32),
             last=np.zeros((num_envs,), dtype=np.float32),
         )
         epinfos = [None] * num_envs
         count = 0
+
+        timesteps = [obs]
         while count < num_envs:
             rng_key, action, agent_out = self._agent_step(
                 rng_key, params, jax.device_put(timestep), 1., True)
             action = jax.device_get(action)
-            observation, reward, done, info = self._envs.step(action)
+            observation, reward, done, truncated, info = self._envs.step(action)
             timestep = ActorOutput(
                 action_tm1=action,
                 reward=reward,
@@ -76,9 +79,10 @@ class EvaluateActor(object):
                 first=timestep.last,  # If the previous timestep is the last, this is the first.
                 last=done.astype(np.float32),
             )
+            timesteps.append(observation)
             for k, i in enumerate(info):
                 maybeepinfo = i.get('episode')
                 if maybeepinfo and epinfos[k] is None:
                     epinfos[k] = maybeepinfo
                     count += 1
-        return rng_key, epinfos
+        return rng_key, epinfos, timesteps
